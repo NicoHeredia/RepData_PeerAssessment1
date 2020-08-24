@@ -1,0 +1,196 @@
+---
+title: "Project_1"
+author: "Nicolas Heredia"
+date: "24/8/2020"
+output: html_document
+---
+
+##Assignment Instructions
+1.Code for reading in the dataset and/or processing the data
+2.Histogram of the total number of steps taken each day
+3.Mean and median number of steps taken each day
+4.Time series plot of the average number of steps taken
+5.The 5-minute interval that, on average, contains the maximum number of steps
+6.Code to describe and show a strategy for imputing missing data
+7.Histogram of the total number of steps taken each day after missing values are imputed
+8.Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+9.All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+
+
+##Step 1
+##Code for reading in the dataset and/or processing the data
+```{r, echo = TRUE}
+setwd("C:\Users\Usuario\Desktop\Coursera_Data_Science\Reproducible_Research\Project_1")
+act<-read.csv("activity.csv")
+```
+
+Exploring the basics of this data
+```{r}
+dim(act)
+names(act)
+head(act)
+str(act)
+#total number of missing data
+sum(is.na(act$steps))/dim(act)[[1]]
+#transforming the date column into date format using lubridate
+library(lubridate)
+act$date<-ymd(act$date)
+length(unique(act$date))
+```
+
+
+##Step 2
+##Total number of steps taken each day
+```{r, echo = TRUE}
+library(ggplot2)
+D2<-data.frame(tapply(act$steps,act$date,sum,na.rm=TRUE))
+D2$date<-rownames(D2)
+rownames(D2)<-NULL
+names(D2)[[1]]<-"Total Steps"
+png("plot1.png")
+#Total Steps by date bar chart
+ggplot(D2,aes(y=D2$`Total Steps`,x=D2$date))+geom_bar(stat="identity") + ylab("Total Steps")+xlab("Date")+ggtitle("Total Steps by date")
+dev.off()
+ggplot(D2,aes(y=D2$`Total Steps`,x=D2$date))+geom_bar(stat="identity") + ylab("Total Steps")+xlab("Date")+ggtitle("Total Steps by date")
+#Histogram of total steps
+qplot(D2$`Total Steps`,geom="histogram",xlab="Total Steps",ylab="Counts",main="Total Steps Historgram")
+png("plot1.1.png")
+qplot(D2$`Total Steps`,geom="histogram",xlab="Total Steps",ylab="Counts",main="Total Steps Historgram")
+dev.off()
+```
+
+
+##Step 3
+##Mean and median number of steps taken each day
+
+```{r, echo = TRUE}
+library(dplyr)
+D3<-data.frame(round(tapply(act$steps,act$date,mean,na.rm=TRUE),2))
+D3$date<-rownames(D3)
+rownames(D3)<-NULL
+names(D3)[[1]]<-"Mean Steps"
+temp<-act%>%select(date,steps) %>% group_by(date) %>% summarise(median(steps))
+names(temp)[[2]]<-"Median Steps"
+D3$median<-temp$`Median Steps`
+D3<-D3 %>% select(date,`Mean Steps`,median)
+```
+
+##Step 4
+##Time series plot of the average number of steps taken
+```{r, echo = TRUE}
+D4<-D3
+D4$date<-as.Date(D4$date,format="%Y-%m-%d")
+ggplot(D4,aes(x=D4$date,y=D4$`Mean Steps`))+geom_bar(stat="identity")+scale_x_date()+ylab("Mean Steps Every day")+xlab("Date")+ggtitle("Mean Steps by Date")
+png("plot4.png")
+ggplot(D4,aes(x=D4$date,y=D4$`Mean Steps`))+geom_bar(stat="identity")+scale_x_date()+ylab("Mean Steps Every day")+xlab("Date")+ggtitle("Mean Steps by Date")
+dev.off()
+```
+
+
+##Step 5
+##The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r, echo = TRUE}
+#This is assuming that the words on average means averaging steps by date and interval
+act$interval<-factor(act$interval)
+D5<-aggregate(data=act,steps~date+interval,FUN="mean")
+D5<-aggregate(data=D5,steps~interval,FUN="max")
+```
+
+
+##Step 6
+Code to describe and show a strategy for imputing missing data
+There are multiple strategies to deal with multiple value imputations.
+The common strategies include:
+1. Constant value imputations
+2. Regression model value imputations
+3. Mean/mode value substitutions
+For the purpose of simplicity, in this question, I will use the mean/mode value substitution strategy to impute missing values. That is, using the mean values to substitute out the missing values in the original data set
+Before doing any sort of imputation, it is helpful to understand what are the distributions of missing values by date and interval
+```{r, echo = TRUE}
+D6<-act
+D6$Missing<-is.na(D6$steps)
+D6<-aggregate(data=D6,Missing~date+interval,FUN="sum")
+D6a<-data.frame(tapply(D6$Missing,D6$date,sum))
+D6a$date<-rownames(D6a)
+rownames(D6.1)<-NULL
+names(D6.1)<-c("Missing","date")
+D6a$date<-as.Date(D6a$date,format="%Y-%m-%d")
+D6b<-data.frame(tapply(D6$Missing,D6$interval,sum))
+D6b$date<-rownames(D6b)
+rownames(D6b)<-NULL
+names(D6b)<-c("Missing","Interval")
+par(mfrow=c(1,2))
+plot(y=D6a$Missing,x=D6a$date,main="Missing Value Distribution by Date")
+plot(y=D6b$Missing,x=D6b$Interval,main="Missing Value Distribution by Interval")
+table(act$date)
+```
+
+By this point, from the plot, that the missing values have a very disctinct pattern. For every interval, there are consistantly 8 missing values. For the date, there are consistantly 288 missing values. And in total, there are 8 dates that have missing value. We don't exactly know the cause for these missing values but there's a pattern. For that matter, we can see that the mean value imputation is appropriate.
+
+We can see that every date has 288 data points. It means that the 8 dates have no data points at all what so ever. We can refine the analysis by looking at these missing values depending on their Weekday and interval parameters to matach with the average 
+
+```{r, echo = TRUE}
+#Dates that have missing values 
+library(lubridate)
+D6c<-as.data.frame(Q6.1) %>% select(date,Missing) %>% arrange(desc(Missing))
+D6c<-D6c[which(D6c$Missing!=0),]
+D6c$Weekday<-wday(D6c$date,label=TRUE)
+D6d<-act
+D6d$weekday<-wday(D6d$date,label=TRUE)
+#Finding the mean of steps every monday, and every interval
+D6e<-aggregate(data=D6d,steps~interval+weekday,FUN="mean",na.rm=TRUE)
+#Merge the pre-imputation table Q6.4 table with the average table Q6.5
+D6f<-merge(x=D6d,y=D6e,by.x=c("interval","weekday"),by.y=c("interval","weekday"),all.x=TRUE)
+#Conditionally replacing the steps.x column NA value with the values from steps.y column value 
+D6f$Steps.Updated<-0
+for (i in 1:dim(D6f)[[1]]){
+if(is.na(D6f[i,3])){D6f[i,6]=D6f[i,5]}
+else {D6f[i,6]=D6f[i,3]}
+}
+#Now simplify the imputed analytical data frame
+D6f <-D6f  %>% select(date,weekday,interval,Steps.Updated)
+names(D6f)[[4]]<-"Steps"
+```
+
+
+## Step 7
+Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r, echo = TRUE}
+png("plot7.png")
+qplot(D6f$Steps,geom="histogram",main="Total steps taken histogram post imputation",xlab="Steps",ylab="Count")
+dev.off()
+qplot(D6f$Steps,geom="histogram",main="Total steps taken histogram post imputation",xlab="Steps",ylab="Count")
+```
+
+
+
+
+## Step 8
+Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r, echo = TRUE}
+Sf<-Q6.6
+levels(Sf$weekday)<-c(1,2,3,4,5,6,7)
+Sf$WDWE<-Sf$weekday %in% c(1,2,3,4,5)
+Sfa<-aggregate(data=Sf,Steps~interval+WDWE,mean,na.rm=TRUE)
+Sfa$WDWE<-as.factor(Sfa$WDWE)
+levels(Sfa$WDWE)<-c("Weekend","Weekday")
+png("plot8.png")
+ggplot(data=Sfa,aes(y=Steps,x=interval,group=1,color=WDWE))+geom_line() +scale_x_discrete(breaks = seq(0, 2500, by = 300))+ylab("Mean Steps")+xlab("Intervals")+ggtitle("Mean steps across intervals by Weekend and Weekday")
+dev.off()
+ggplot(data=Sfa,aes(y=Steps,x=interval,group=1,color=WDWE))+geom_line() +scale_x_discrete(breaks = seq(0, 2500, by = 300))+ylab("Mean Steps")+xlab("Intervals")+ggtitle("Mean steps across intervals by Weekend and Weekday")
+#Producing the panel plot
+Q8.1$interval<-as.numeric(as.character(Sfa$interval))
+library(lattice)
+xyplot(data=Sfa,Steps~interval|WDWE, grid = TRUE, type = c("p", "smooth"), lwd = 4,panel = panel.smoothScatter)
+library(hexbin)
+hexbinplot(data=Sfa,Steps~interval|WDWE, aspect = 1, bins=50)
+png("plott8.a.png")
+xyplot(data=Sfa,Steps~interval|WDWE, grid = TRUE, type = c("p", "smooth"), lwd = 4,panel = panel.smoothScatter)
+dev.off()
+png("plot8.b.png")
+hexbinplot(data=Sfa,Steps~interval|WDWE, aspect = 1, bins=50)
+dev.off()
+```
