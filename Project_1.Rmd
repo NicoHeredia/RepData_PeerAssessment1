@@ -20,12 +20,13 @@ output: html_document
 ##Step 1
 ##Code for reading in the dataset and/or processing the data
 ```{r, echo = TRUE}
-setwd("C:\Users\Usuario\Desktop\Coursera_Data_Science\Reproducible_Research\Project_1")
+setwd("C:/Users/Usuario/Desktop/Coursera_Data_Science/Reproducible_Research/Project_1")
 act<-read.csv("activity.csv")
 ```
 
 Exploring the basics of this data
 ```{r}
+library(lubridate)
 dim(act)
 names(act)
 head(act)
@@ -33,7 +34,6 @@ str(act)
 #total number of missing data
 sum(is.na(act$steps))/dim(act)[[1]]
 #transforming the date column into date format using lubridate
-library(lubridate)
 act$date<-ymd(act$date)
 length(unique(act$date))
 ```
@@ -113,8 +113,8 @@ D6$Missing<-is.na(D6$steps)
 D6<-aggregate(data=D6,Missing~date+interval,FUN="sum")
 D6a<-data.frame(tapply(D6$Missing,D6$date,sum))
 D6a$date<-rownames(D6a)
-rownames(D6.1)<-NULL
-names(D6.1)<-c("Missing","date")
+rownames(D6a)<-NULL
+names(D6a)<-c("Missing","date")
 D6a$date<-as.Date(D6a$date,format="%Y-%m-%d")
 D6b<-data.frame(tapply(D6$Missing,D6$interval,sum))
 D6b$date<-rownames(D6b)
@@ -133,7 +133,7 @@ We can see that every date has 288 data points. It means that the 8 dates have n
 ```{r, echo = TRUE}
 #Dates that have missing values 
 library(lubridate)
-D6c<-as.data.frame(Q6.1) %>% select(date,Missing) %>% arrange(desc(Missing))
+D6c<-as.data.frame(D6a) %>% select(date,Missing) %>% arrange(desc(Missing))
 D6c<-D6c[which(D6c$Missing!=0),]
 D6c$Weekday<-wday(D6c$date,label=TRUE)
 D6d<-act
@@ -171,7 +171,7 @@ qplot(D6f$Steps,geom="histogram",main="Total steps taken histogram post imputati
 Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
 
 ```{r, echo = TRUE}
-Sf<-Q6.6
+Sf<-D6f
 levels(Sf$weekday)<-c(1,2,3,4,5,6,7)
 Sf$WDWE<-Sf$weekday %in% c(1,2,3,4,5)
 Sfa<-aggregate(data=Sf,Steps~interval+WDWE,mean,na.rm=TRUE)
@@ -182,7 +182,7 @@ ggplot(data=Sfa,aes(y=Steps,x=interval,group=1,color=WDWE))+geom_line() +scale_x
 dev.off()
 ggplot(data=Sfa,aes(y=Steps,x=interval,group=1,color=WDWE))+geom_line() +scale_x_discrete(breaks = seq(0, 2500, by = 300))+ylab("Mean Steps")+xlab("Intervals")+ggtitle("Mean steps across intervals by Weekend and Weekday")
 #Producing the panel plot
-Q8.1$interval<-as.numeric(as.character(Sfa$interval))
+Sfa$interval<-as.numeric(as.character(Sfa$interval))
 library(lattice)
 xyplot(data=Sfa,Steps~interval|WDWE, grid = TRUE, type = c("p", "smooth"), lwd = 4,panel = panel.smoothScatter)
 library(hexbin)
